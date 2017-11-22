@@ -132,7 +132,7 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
 - (void)launchImagePicker:(RNImagePickerTarget)target
 {
     self.picker = [[UIImagePickerController alloc] init];
-
+    
     if (target == RNImagePickerTargetCamera) {
 #if TARGET_IPHONE_SIMULATOR
         self.callback(@[@{@"error": @"Camera not available on simulator"}]);
@@ -289,7 +289,13 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
         if ([mediaType isEqualToString:(NSString *)kUTTypeImage]) { // PHOTOS
             UIImage *image;
             if ([[self.options objectForKey:@"allowsEditing"] boolValue]) {
-                image = [info objectForKey:UIImagePickerControllerEditedImage];
+                if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+                    UIImage* orgImage = [info objectForKey:UIImagePickerControllerOriginalImage];
+                    CGRect cropRect = [[info objectForKey:UIImagePickerControllerCropRect] CGRectValue];
+                    image = [self ct_imageFromImage:orgImage inRect:cropRect];
+                } else {
+                    image = [info objectForKey:UIImagePickerControllerEditedImage];
+                }
             }
             else {
                 image = [info objectForKey:UIImagePickerControllerOriginalImage];
@@ -563,6 +569,18 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
     else {
         callback(NO);
     }
+}
+
+- (UIImage *)ct_imageFromImage:(UIImage *)image inRect:(CGRect)rect{
+    CGFloat scale = [UIScreen mainScreen].scale;
+    CGFloat x = rect.origin.x * scale, y = rect.origin.y * scale,w = rect.size.width * scale,h = rect.size.height*scale;
+    CGRect dianRect = CGRectMake(x, y, w, h);
+    
+    CGImageRef sourceImageRef = [image CGImage];
+    CGImageRef newImageRef = CGImageCreateWithImageInRect(sourceImageRef, dianRect);
+    UIImage *newImage = [UIImage imageWithCGImage:newImageRef scale:[UIScreen mainScreen].scale orientation:UIImageOrientationUp];
+    CGImageRelease(newImageRef);
+    return newImage;
 }
 
 - (UIImage*)downscaleImageIfNecessary:(UIImage*)image maxWidth:(float)maxWidth maxHeight:(float)maxHeight
